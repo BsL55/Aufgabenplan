@@ -385,21 +385,55 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
-/* ╔══════════════════════════════════════════════════════════════╗
-   ║  EINSTELLUNGEN – die zwei Supabase-Werte eintragen, speichern. ║
-   ║  Solange leer: DEMO-MODUS (lokal, ohne Login/Sync).           ║
-   ╚══════════════════════════════════════════════════════════════╝ */
+/* ╔═══════════════════════════════════════════════════════════════════════╗
+   ║              HIER DIE ZWEI SUPABASE-WERTE EINTRAGEN                      ║
+   ║                                                                         ║
+   ║  Beide findest du im Supabase-Dashboard:                                ║
+   ║      Settings  ->  API Keys      (oder oben der grüne "Connect"-Knopf)  ║
+   ║                                                                         ║
+   ║  Die Werte gehören ZWISCHEN die Hochkommas: '……'                        ║
+   ║  Alles hinter einem  //  ist nur ein Beispiel und wird ignoriert.       ║
+   ║                                                                         ║
+   ║  --- SO SIEHT ES RICHTIG AUS (Beispielwerte) ---------------------------║
+   ║      SUPABASE_URL:      'https://abcdxyz123.supabase.co',               ║
+   ║      SUPABASE_ANON_KEY: 'sb_publishable_A1b2C3...restlicher_Schlüssel', ║
+   ║  ------------------------------------------------------------------------║
+   ║                                                                         ║
+   ║  URL:  beginnt mit  https://  und endet auf  .supabase.co               ║
+   ║        (KEIN Schrägstrich am Ende, kein Pfad dahinter)                  ║
+   ║  KEY:  der ÖFFENTLICHE Schlüssel  ->  'Publishable' (sb_publishable_…)  ║
+   ║        oder 'anon public' (eyJ…).  NICHT der secret/service_role-Key!   ║
+   ║        Komplett in EINE Zeile, ganz zwischen die '…'.                   ║
+   ║                                                                         ║
+   ║  Solange BEIDE leer sind, läuft die App im DEMO-Modus (ohne Login).     ║
+   ╚═══════════════════════════════════════════════════════════════════════╝ */
 const CONFIG = {
-  SUPABASE_URL:      'https://qbzithpzlehdmgacdwsa.supabase.co/rest/v1/',   
-  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFieml0aHB6bGVoZG1nYWNkd3NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwMzU4ODcsImV4cCI6MjA5NzYxMTg4N30.QHB4IBh-kGgaJuYdtOc0SsXsw1tSFnEBggeQSqo9xJE'    
+
+  // ────────────────────────────────────────────────────────────────
+  SUPABASE_URL:      'https://qbzithpzlehdmgacdwsa.supabase.co/rest/v1/',
+  //                 ▲ hier die Projekt-URL, z. B. 'https://abcdxyz123.supabase.co'
+  // ────────────────────────────────────────────────────────────────
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFieml0aHB6bGVoZG1nYWNkd3NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwMzU4ODcsImV4cCI6MjA5NzYxMTg4N30.QHB4IBh-kGgaJuYdtOc0SsXsw1tSFnEBggeQSqo9xJE'
+  //                 ▲ hier den öffentlichen Schlüssel, z. B. 'sb_publishable_…'  (oder 'eyJ…')
+  // ────────────────────────────────────────────────────────────────
+
 };
 
-const A_URL  = (CONFIG.SUPABASE_URL||'').replace(/\/+$/,'');
-const A_ANON = CONFIG.SUPABASE_ANON_KEY||'';
-const A_REST = A_URL+'/rest/v1';
-const A_AUTH = A_URL+'/auth/v1';
-const A_FNS  = A_URL+'/functions/v1';
-const CLOUD  = !!(A_URL && A_ANON);
+function cleanUrl(u){ u=(u||'').trim().replace(/\s+/g,''); if(!u)return''; if(!/^https?:\/\//i.test(u))u='https://'+u; try{return new URL(u).origin;}catch(e){return u.replace(/\/+$/,'');} }
+function cleanKey(k){ return (k||'').trim().replace(/\s+/g,''); }
+let _u=cleanUrl(CONFIG.SUPABASE_URL), _k=cleanKey(CONFIG.SUPABASE_ANON_KEY);
+if(/^https?:\/\//i.test(_k) && !/^https?:\/\//i.test(_u)){ const t=_u; _u=cleanUrl(_k); _k=cleanKey(t); }   // URL & Key vertauscht -> korrigieren
+const A_URL=_u, A_ANON=_k;
+const A_REST=A_URL+'/rest/v1', A_AUTH=A_URL+'/auth/v1', A_FNS=A_URL+'/functions/v1';
+const CLOUD = !!(A_URL && A_ANON);
+let CONFIG_WARN='';
+(function(){ const ru=(CONFIG.SUPABASE_URL||'').trim(), rk=(CONFIG.SUPABASE_ANON_KEY||'').trim();
+  if(!ru && !rk) return;                                  // beide leer = bewusster Demo-Modus
+  if(!A_ANON) CONFIG_WARN='Konfiguration unvollständig: Der SUPABASE_ANON_KEY fehlt.';
+  else if(!A_URL) CONFIG_WARN='Konfiguration unvollständig: Die SUPABASE_URL fehlt.';
+  else if(/^sb_secret_/i.test(A_ANON)) CONFIG_WARN='Falscher Schlüssel: Das ist der geheime „secret"-Schlüssel. Bitte den öffentlichen (sb_publishable_… oder anon eyJ…) verwenden.';
+  else if(!/supabase\.(co|in|net)$/i.test(A_URL) && !/\.supabase\./i.test(A_URL)) CONFIG_WARN='Prüfe die SUPABASE_URL – sie sollte auf .supabase.co enden.';
+})();
 
 /* ---------- Stammdaten (nur Demo) ---------- */
 const DEFAULT_KOL=[{name:'Topfen 1',va:'Horst'},{name:'Topfen 2',va:'Daniel'},{name:'Versand 1',va:'Benni'},{name:'Versand 2',va:'Costel'},{name:'Kulturarbeiten',va:'Andreas'},{name:'Warenausgang',va:'Gert'},{name:'Wareneingang',va:'Wolle'},{name:'Etiketten',va:'Birte'},{name:'Fahren',va:'Jürgen / Dogay'}];
@@ -737,7 +771,7 @@ function updateCounts(){$('#cntOffen').textContent=TASKS.length;$('#cntArch').te
 function renderConnInfo(){const el=$('#connInfo');if(backend.mode==='cloud')el.innerHTML=`<b>Modus: Cloud (synchronisiert).</b> Alle Geräte teilen denselben Stand; Rollen und Zugriff werden serverseitig über Supabase geprüft.`;else el.innerHTML=`<b>Modus: Demo (lokal).</b> Ohne Supabase-Konfiguration – nur zum Ausprobieren auf diesem Gerät.`;}
 
 /* ===================== Login-Fluss ===================== */
-function showLogin(){document.body.className='logged-out';stopPolling();$('#authDemo').classList.toggle('show',Auth.demo);$('#authErr').classList.remove('show');setTimeout(()=>$('#liEmail').focus(),50);}
+function showLogin(){document.body.className='logged-out';stopPolling();$('#authDemo').classList.toggle('show',Auth.demo&&!CONFIG_WARN);if(CONFIG_WARN){$('#authErr').textContent=CONFIG_WARN;$('#authErr').classList.add('show');}else{$('#authErr').classList.remove('show');}setTimeout(()=>$('#liEmail').focus(),50);}
 async function enterApp(){
   document.body.className='logged-in'+(Auth.isAdmin()?' is-admin':'');
   $('#rolePill').textContent=Auth.name()+(Auth.isAdmin()?' · Admin':' · Vorarbeiter'); $('#rolePill').classList.toggle('is-admin',Auth.isAdmin());
@@ -749,6 +783,7 @@ async function enterApp(){
   if(backend.mode==='cloud') startPolling();
 }
 async function doLogin(){
+  if(CONFIG_WARN){ $('#authErr').textContent=CONFIG_WARN; $('#authErr').classList.add('show'); return; }
   const email=$('#liEmail').value.trim(),pw=$('#liPw').value,remember=$('#liRemember').checked;
   if(!Auth.demo&&(!email||!pw)){$('#authErr').textContent='Bitte E-Mail und Passwort eingeben.';$('#authErr').classList.add('show');return;}
   $('#liGo').disabled=true;$('#authErr').classList.remove('show');
