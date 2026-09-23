@@ -410,11 +410,16 @@
 const CONFIG = {
 
   // ────────────────────────────────────────────────────────────────
-  SUPABASE_URL:      'https://qbzithpzlehdmgacdwsa.supabase.co/rest/v1/',
+  SUPABASE_URL:      'https://qbzithpzlehdmgacdwsa.supabase.co',
   //                 ▲ hier die Projekt-URL, z. B. 'https://abcdxyz123.supabase.co'
   // ────────────────────────────────────────────────────────────────
-  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFieml0aHB6bGVoZG1nYWNkd3NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwMzU4ODcsImV4cCI6MjA5NzYxMTg4N30.QHB4IBh-kGgaJuYdtOc0SsXsw1tSFnEBggeQSqo9xJE'
+  SUPABASE_ANON_KEY: 'sb_publishable_X9kGjBrVC5tacxJ5CAcyGA_m8ahpxkW',
   //                 ▲ hier den öffentlichen Schlüssel, z. B. 'sb_publishable_…'  (oder 'eyJ…')
+  // ────────────────────────────────────────────────────────────────
+  ADMIN_FUNCTION:    'super-processor'
+  //                 ▲ Name deiner Edge Function für die Benutzerverwaltung –
+  //                   genau so, wie er im Dashboard unter "Edge Functions" in der Spalte NAME steht
+  //                   (z. B. 'super-processor'). Nur nötig, wenn sie nicht 'admin-users' heißt.
   // ────────────────────────────────────────────────────────────────
 
 };
@@ -425,6 +430,7 @@ let _u=cleanUrl(CONFIG.SUPABASE_URL), _k=cleanKey(CONFIG.SUPABASE_ANON_KEY);
 if(/^https?:\/\//i.test(_k) && !/^https?:\/\//i.test(_u)){ const t=_u; _u=cleanUrl(_k); _k=cleanKey(t); }   // URL & Key vertauscht -> korrigieren
 const A_URL=_u, A_ANON=_k;
 const A_REST=A_URL+'/rest/v1', A_AUTH=A_URL+'/auth/v1', A_FNS=A_URL+'/functions/v1';
+const A_FN=((CONFIG.ADMIN_FUNCTION||'admin-users').trim().replace(/^\/+|\/+$/g,''))||'admin-users';
 const CLOUD = !!(A_URL && A_ANON);
 let CONFIG_WARN='';
 (function(){ const ru=(CONFIG.SUPABASE_URL||'').trim(), rk=(CONFIG.SUPABASE_ANON_KEY||'').trim();
@@ -562,7 +568,7 @@ function makeCloudBackend(){
     deleteKol:id=>req('DELETE',A_REST+`/kolonnen?id=eq.${id}`),
     async adminUsers(action,payload){
       await Auth.ensureFresh();
-      const r=await fetch(A_FNS+'/admin-users',{method:'POST',headers:{'apikey':A_ANON,'Authorization':'Bearer '+Auth.token(),'Content-Type':'application/json'},body:JSON.stringify(Object.assign({action},payload||{}))});
+      const r=await fetch(A_FNS+'/'+A_FN,{method:'POST',headers:{'apikey':A_ANON,'Authorization':'Bearer '+Auth.token(),'Content-Type':'application/json'},body:JSON.stringify(Object.assign({action},payload||{}))});
       const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||('HTTP '+r.status)); return d;
     }
   };
@@ -747,7 +753,7 @@ async function loadUsers(){
     box.querySelectorAll('[data-pw]').forEach(b=>b.onclick=()=>resetUserPw(b.dataset.pw));
     box.querySelectorAll('[data-dis]').forEach(b=>b.onclick=()=>setDisabled(b.dataset.dis,b.dataset.on!=='1'));
     box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>delUser(b.dataset.del));
-  }catch(e){ box.innerHTML=`<p class="hint" style="color:var(--red)">Benutzer konnten nicht geladen werden: ${esc(e.message)}</p>`; }
+  }catch(e){ const net=/NetworkError|Failed to fetch|Load failed/i.test(e.message); box.innerHTML=`<p class="hint" style="color:var(--red)">Benutzer konnten nicht geladen werden: ${esc(e.message)}</p>`+(net?`<p class="hint">Die App ruft die Edge Function <code>${esc(A_FN)}</code> auf. Prüfe: (1) heißt die Function im Dashboard genau so? – sonst den Namen oben in CONFIG unter ADMIN_FUNCTION eintragen; (2) ist in den Function-Einstellungen „Verify JWT" ausgeschaltet?</p>`:''); }
 }
 async function createUser(){
   const email=$('#nuEmail').value.trim(),name=$('#nuName').value.trim(),pw=$('#nuPw').value,rolle=$('#nuRole').value;
